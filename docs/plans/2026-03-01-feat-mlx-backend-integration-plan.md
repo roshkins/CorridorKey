@@ -237,18 +237,18 @@ MLX uses img_size=2048 by default (same as Torch).
 
 ## Acceptance Criteria
 
-- [ ] `create_engine(backend="torch")` returns working Torch engine (existing behavior)
-- [ ] `create_engine(backend="mlx")` returns adapted MLX engine with float32 output contract
-- [ ] `create_engine(backend="auto")` prefers MLX on Apple Silicon, falls back to Torch
-- [ ] `--backend` CLI flag works in `clip_manager.py`
-- [ ] `CORRIDORKEY_BACKEND` env var works
-- [ ] Existing Torch/CUDA path unchanged on Linux/Windows
-- [ ] MLX checkpoint discovery finds `.safetensors` in `CorridorKeyModule/checkpoints/`
-- [ ] Error messages are actionable (missing package, missing checkpoint, wrong platform)
-- [ ] Output adapter normalizes MLX uint8 → float32 with correct shapes
-- [ ] Adapter applies despill/despeckle from `color_utils.py`
-- [ ] Adapter constructs `processed` as `[H,W,4]` linear premul RGBA
-- [ ] `uv run pytest` passes (existing + new tests)
+- [x] `create_engine(backend="torch")` returns working Torch engine (existing behavior)
+- [x] `create_engine(backend="mlx")` returns adapted MLX engine with float32 output contract
+- [x] `create_engine(backend="auto")` prefers MLX on Apple Silicon, falls back to Torch
+- [x] `--backend` CLI flag works in `clip_manager.py`
+- [x] `CORRIDORKEY_BACKEND` env var works
+- [x] Existing Torch/CUDA path unchanged on Linux/Windows
+- [x] MLX checkpoint discovery finds `.safetensors` in `CorridorKeyModule/checkpoints/`
+- [x] Error messages are actionable (missing package, missing checkpoint, wrong platform)
+- [x] Output adapter normalizes MLX uint8 → float32 with correct shapes
+- [x] Adapter applies despill/despeckle from `color_utils.py`
+- [x] Adapter constructs `processed` as `[H,W,4]` linear premul RGBA
+- [x] `uv run pytest` passes (existing + new tests)
 - [ ] MLX smoke test at 2048 passes on Apple Silicon
 - [ ] README documents backend selection and MLX setup
 - [ ] `uv pip install -e ../corridorkey-mlx` works for local dev

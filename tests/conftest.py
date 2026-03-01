@@ -13,6 +13,7 @@ def pytest_configure(config):
     """Register custom markers."""
     config.addinivalue_line("markers", "gpu: requires CUDA or MPS GPU (skipped when unavailable)")
     config.addinivalue_line("markers", "slow: long-running test")
+    config.addinivalue_line("markers", "mlx: requires Apple Silicon with MLX installed")
 
 
 def _has_gpu():

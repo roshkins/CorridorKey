@@ -532,7 +532,7 @@ def run_videomama(clips: list[ClipEntry], chunk_size: int = 50, device: str | No
             traceback.print_exc()
 
 
-def run_inference(clips: list[ClipEntry], device: str | None = None) -> None:
+def run_inference(clips, device=None, backend=None):
     ready_clips = [c for c in clips if c.input_asset and c.alpha_asset]
 
     if not ready_clips:
@@ -601,7 +601,9 @@ def run_inference(clips: list[ClipEntry], device: str | None = None) -> None:
 
     if device is None:
         device = resolve_device()
-    engine = get_corridor_key_engine(device=device)
+    from CorridorKeyModule.backend import create_engine
+
+    engine = create_engine(backend=backend, device=device)
 
     for clip in ready_clips:
         logger.info(f"Running Inference on: {clip.name}")
@@ -915,3 +917,40 @@ def scan_clips() -> list[ClipEntry]:
         print("\nAll clip folders appear valid.\n")
 
     return valid_clips
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="CorridorKey Clip Manager")
+    parser.add_argument("--action", choices=["generate_alphas", "run_inference", "list", "wizard"], required=True)
+    parser.add_argument("--win_path", help=r"Windows Path (example: V:\...) for Wizard Mode", default=None)
+    parser.add_argument(
+        "--device",
+        choices=["auto", "cuda", "mps", "cpu"],
+        default="auto",
+        help="Compute device (default: auto-detect CUDA > MPS > CPU)",
+    )
+    parser.add_argument(
+        "--backend",
+        choices=["auto", "torch", "mlx"],
+        default="auto",
+        help="Inference backend (default: auto-detect MLX on Apple Silicon, else Torch)",
+    )
+
+    args = parser.parse_args()
+
+    device = resolve_device(args.device)
+    logger.info(f"Using device: {device}")
+
+    if args.action == "list":
+        scan_clips()
+    elif args.action == "generate_alphas":
+        clips = scan_clips()
+        generate_alphas(clips, device=device)
+    elif args.action == "run_inference":
+        clips = scan_clips()
+        run_inference(clips, device=device, backend=args.backend)
+    elif args.action == "wizard":
+        if not args.win_path:
+            print("Error: --win_path required for wizard.")
+        else:
+            interactive_wizard(args.win_path, device=device)
