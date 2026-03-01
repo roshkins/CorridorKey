@@ -72,3 +72,15 @@ markers = [
     "slow: long-running test",
 ]
 addopts = "-x --tb=short"
+
+[tool.coverage.run]
+branch = true
+# "." covers root-level modules (clip_manager.py, corridorkey_cli.py once PR #8 merges).
+# Third-party and non-library code is excluded via omit.
+source = ["CorridorKeyModule", "."]
+omit = [
+    "gvm_core/*",
+    "VideoMaMaInferenceModule/*",
+    "tests/*",
+    "test_vram.py",  # manual GPU smoke test, not part of the pytest suite
+]

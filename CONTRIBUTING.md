@@ -22,10 +22,10 @@ That's it. No manual virtualenv creation, no `pip install` — uv handles everyt
 ### Running Tests
 
 ```bash
-uv run pytest                                      # run all tests
-uv run pytest -v                                   # verbose (shows each test name)
-uv run pytest -m "not gpu"                         # skip tests that need a CUDA GPU
-uv run pytest --cov=CorridorKeyModule --cov-branch # display test coverage of CorridorKeyModule (with branch coverage)
+uv run pytest              # run all tests
+uv run pytest -v           # verbose (shows each test name)
+uv run pytest -m "not gpu" # skip tests that need a CUDA GPU
+uv run pytest --cov        # show test coverage (sources and branch mode configured in pyproject.toml)
 ```
 
 Most tests run in a few seconds and don't need a GPU or model weights. Tests that require CUDA are marked with `@pytest.mark.gpu` and will be skipped automatically if no GPU is available.
