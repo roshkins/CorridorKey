@@ -2,6 +2,7 @@
 
 import platform
 import sys
+from unittest.mock import MagicMock
 
 import numpy as np
 import pytest

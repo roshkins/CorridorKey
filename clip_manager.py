@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import argparse
 import glob
 import logging
 import os
@@ -17,7 +18,6 @@ import numpy as np
 from device_utils import resolve_device
 
 if TYPE_CHECKING:
-    from CorridorKeyModule.inference_engine import CorridorKeyEngine
     from gvm_core import GVMProcessor
 
 logger = logging.getLogger(__name__)
@@ -925,4 +925,4 @@ if __name__ == "__main__":
         if not args.win_path:
             print("Error: --win_path required for wizard.")
         else:
-            interactive_wizard(args.win_path, device=device)
+            raise NotImplementedError("interactive_wizard is not yet implemented")
