@@ -35,7 +35,8 @@ This project was designed and built on a Linux workstation (Puget Systems PC) eq
 
 The most recent build should work on computers with 6-8 gig of VRAM, and it can run on most M1+ Mac systems with unified memory. Yes, it might even work on your old Macbook pro. Let us know on the Discord!
 
-*   **Windows Users:** To run GPU acceleration natively on Windows, your system MUST have NVIDIA drivers that support **CUDA 12.8 or higher** installed. If your drivers only support older CUDA versions, the installer will likely fallback to the CPU.
+*   **Windows Users (NVIDIA):** To run GPU acceleration natively on Windows, your system MUST have NVIDIA drivers that support **CUDA 12.8 or higher** installed. If your drivers only support older CUDA versions, the installer will likely fallback to the CPU.
+*   **AMD GPU Users (ROCm):** AMD Radeon RX 7000 series (RDNA3) and RX 9000 series (RDNA4) are supported via ROCm on **Linux**. Windows ROCm support is experimental (torch.compile is not yet functional). See the [AMD ROCm Setup](#amd-rocm-setup) section below.
 *   **GVM (Optional):** Requires approximately **80 GB of VRAM** and utilizes massive Stable Video Diffusion models.
 *   **VideoMaMa (Optional):** Natively requires a massive chunk of VRAM as well (originally 80GB+). While the community has tweaked the architecture to run at less than 24GB, those extreme memory optimizations have not yet been fully implemented in this repository.
 *   **BiRefNet (Optional):** Lightweight AlphaHint generator option.
@@ -72,6 +73,7 @@ This project uses **[uv](https://docs.astral.sh/uv/)** to manage Python and all 
     uv sync --extra cuda     # CUDA GPU acceleration (Linux/Windows)
     uv sync --extra mlx      # Apple Silicon MLX acceleration
     ```
+    For **AMD ROCm** setup, see the [AMD ROCm Setup](#amd-rocm-setup) section below.
 4.  **Download the Models:**
     *   **CorridorKey v1.0 Model (~300MB):** Downloads automatically on first run. If no `.pth` file is found in `CorridorKeyModule/checkpoints/`, the engine fetches it from [CorridorKey's HuggingFace](https://huggingface.co/nikopueringer/CorridorKey_v1.0) and saves it as `CorridorKey.pth`. No manual download needed.
     *   **GVM Weights (Optional):** [HuggingFace: geyongtao/gvm](https://huggingface.co/geyongtao/gvm)
@@ -219,6 +221,79 @@ uv run python corridorkey_cli.py wizard --win_path "/path/to/clips"
 **Silent CPU fallback**: If MPS silently falls back to CPU without this variable, the run will be much slower. Setting `PYTORCH_ENABLE_MPS_FALLBACK=1` in your shell profile (`~/.zshrc`) ensures it is always active.
 
 **Use native MLX instead of PyTorch MPS:** MLX avoids PyTorch's MPS layer entirely and typically runs faster on Apple Silicon. See the [Backend Selection](#backend-selection) section below for setup steps.
+
+### AMD ROCm Setup
+
+CorridorKey supports AMD GPUs via PyTorch's ROCm/HIP backend. The `torch.cuda.*` API works transparently on AMD — HIP intercepts all CUDA calls at runtime, so the inference code runs unchanged.
+
+**Supported GPUs (ROCm 7.2+):**
+- RX 7900 XTX (24GB) / XT (20GB) / GRE (16GB) — RDNA3, gfx1100
+- RX 7800 XT (16GB) / 7700 XT (12GB) — RDNA3, gfx1101
+- RX 9070 XT / 9070 (16GB) — RDNA4, gfx1201
+
+**VRAM requirements:** CorridorKey inference at 2048x2048 uses ~10GB on NVIDIA but ~18GB on AMD due to HIP allocator overhead. The RX 7900 XTX (24GB) and RX 7900 XT (20GB) run at full resolution. Cards with 16GB (RX 7800 XT, 9070 XT) work on Windows (which uses system RAM as overflow) but may OOM on Linux — see notes below.
+
+**Linux native (recommended):**
+```bash
+uv sync --extra rocm
+
+# Verify
+uv run python -c "import torch; print(torch.cuda.is_available(), torch.cuda.get_device_name(0))"
+```
+
+**WSL2 (Windows Subsystem for Linux):**
+
+Requires AMD Adrenalin 26.1.1+ driver on Windows. Install ROCm inside WSL2, then use AMD's WSL-specific torch wheels:
+
+```bash
+# 1. Install ROCm for WSL (Ubuntu 24.04)
+sudo apt update
+wget https://repo.radeon.com/amdgpu-install/7.2/ubuntu/noble/amdgpu-install_7.2.70200-1_all.deb
+sudo apt install ./amdgpu-install_7.2.70200-1_all.deb
+amdgpu-install -y --usecase=wsl,rocm --no-dkms
+
+# 2. Verify GPU is visible
+rocminfo  # should show your AMD GPU
+
+# 3. Install AMD's WSL torch wheels (Python 3.12)
+pip3 install \
+  https://repo.radeon.com/rocm/manylinux/rocm-rel-7.2/torch-2.9.1%2Brocm7.2.0.lw.git7e1940d4-cp312-cp312-linux_x86_64.whl \
+  https://repo.radeon.com/rocm/manylinux/rocm-rel-7.2/torchvision-0.24.0%2Brocm7.2.0.gitb919bd0c-cp312-cp312-linux_x86_64.whl \
+  https://repo.radeon.com/rocm/manylinux/rocm-rel-7.2/triton-3.5.1%2Brocm7.2.0.gita272dfa8-cp312-cp312-linux_x86_64.whl
+
+# 4. Fix WSL runtime library conflict (required)
+location=$(pip3 show torch | grep Location | awk -F ": " '{print $2}')
+rm -f ${location}/torch/lib/libhsa-runtime64.so*
+
+# 5. Install CorridorKey deps AFTER torch (so pip doesn't overwrite ROCm torch)
+pip3 install -e .
+```
+
+**Windows native (experimental):**
+
+Windows ROCm requires Python 3.12 and AMD Adrenalin 25.3.1+ driver. `torch.compile` does not work on Windows ROCm — inference runs in eager mode (significantly slower than Linux).
+
+```powershell
+py -3.12 -m pip install https://repo.radeon.com/rocm/windows/rocm-rel-7.2/rocm-7.2.0.dev0-py3-none-win_amd64.whl
+py -3.12 -m pip install --no-cache-dir https://repo.radeon.com/rocm/windows/rocm-rel-7.2/torch-2.9.1+rocmsdk20260116-cp312-cp312-win_amd64.whl https://repo.radeon.com/rocm/windows/rocm-rel-7.2/torchvision-0.24.1+rocmsdk20260116-cp312-cp312-win_amd64.whl
+```
+
+**What CorridorKey does automatically on ROCm:**
+- Sets `TORCH_ROCM_AOTRITON_ENABLE_EXPERIMENTAL=1` so SDPA dispatches to flash attention kernels on RDNA3 (without this, attention falls back to a slow O(n²) path)
+- Sets `MIOPEN_FIND_MODE=2` for faster convolution kernel selection (reduces warmup from 5-8 minutes to seconds)
+- Uses `torch.compile(mode="default")` on Linux to avoid OOM during kernel autotuning on 16GB cards
+- Skips `torch.compile` entirely on Windows ROCm where Triton compilation hangs
+- Auto-detects ROCm via `/opt/rocm` (Linux), `HIP_PATH` (Windows), or `CORRIDORKEY_ROCM=1` env var (explicit opt-in)
+
+**First-run note:** The first inference run on a new AMD GPU triggers Triton kernel autotuning (10-20 minutes). This is cached in `~/.cache/corridorkey/inductor/` and only happens once per GPU architecture. Subsequent runs start instantly.
+
+**16GB cards on Linux:** CorridorKey at 2048x2048 needs ~18GB. Windows handles this transparently via shared GPU memory (system RAM overflow). On Linux, the GPU has a hard VRAM limit. If you hit OOM on a 16GB card, install `pytorch-rocm-gtt` to enable GTT (system RAM as GPU overflow) — CorridorKey detects and uses it automatically:
+```bash
+pip install pytorch-rocm-gtt
+```
+GTT memory is accessed over PCIe (~10-20x slower than VRAM), so expect slower frame times on 16GB cards vs 20-24GB cards.
+
+**WSL2 limitation:** WSL2 cannot use GTT or shared memory — it has a hard VRAM limit. 16GB cards will OOM in WSL2 at 2048x2048. Use Windows native instead, or a card with 20GB+ VRAM.
 
 ## Backend Selection
 
